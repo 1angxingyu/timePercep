@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>主观耗时排列任务（信息→指导语→拖拽→极端词）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --wrap-w: 1600px;
+    --gap: 16px;
+    --radius: 12px;
+    --blue: #2e6bff;
+  }
+  body{
+    background:#f7f7f7;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto,
+                 "Noto Sans CJK SC","PingFang SC","Microsoft Yahei", Arial;
+    margin:0;
+  }
+  .wrap{ max-width: var(--wrap-w); margin: 28px auto; padding: 0 16px; }
+
+  /* —— 通用卡片 —— */
+  .card{
+    background:#fff; border:1px solid #ddd; border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgba(0,0,0,.05); padding: 24px 28px; margin: 28px auto;
+  }
+  .title{ font-size: 24px; margin: 0 0 12px; line-height: 1.25; }
+  .subtitle{ color:#555; margin: 0 0 12px; font-size: 15px; }
+  .btn{
+    display:inline-block; margin-top:18px; padding:12px 22px; border-radius:10px;
+    border:1px solid var(--blue); background: var(--blue); color:#fff; cursor:pointer; font-size:16px;
+  }
+  .btn.secondary{ background:#fff; color:#333; border-color:#bbb; }
+  .err{ color:#c00; font-size: 13px; margin-top: 8px; display:none; }
+  .hidden{ display:none; }
+
+  /* —— 表单页（第1页） —— */
+  .form-grid{
+    display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap);
+    margin-top: 12px;
+  }
+  @media (max-width: 860px){ .form-grid{ grid-template-columns: 1fr; } }
+  label{ display:block; margin: 6px 0 6px; color:#333; font-size: 14px; }
+  input[type="text"], input[type="number"], select{
+    width: 100%; padding: 12px 12px; border: 1px solid #ccc; border-radius: 10px;
+    font-size: 16px; background:#fff;
+  }
+
+  /* —— 指导语页（第2页） —— */
+  .instr p{ font-size: 16px; line-height: 1.8; color:#333; margin: 8px 0; }
+
+  /* —— 任务页（第3页） —— */
+  .task-title{ font-size: 22px; margin: 8px 0 14px; }
+  .bank{
+    position: relative; width: 100%; height: 380px;
+    border: 1px dashed #c8c8c8; border-radius: 10px; background: #fff;
+    overflow: visible;
+  }
+  .token{
+    position: absolute; padding: 8px 12px; background:#e9f2ff;
+    border:1px solid #9ec3ff; border-radius:14px; cursor:grab; user-select:none;
+    font-size:18px; white-space:nowrap; box-shadow: 0 1px 0 rgba(0,0,0,.06); z-index:10;
+  }
+  .axis-wrap{ margin: 26px 0 12px; position: relative; min-height: 160px; }
+  .axis{
+    width: 98%; height: 14px; background:#e0e0e0; border-radius:7px;
+    position: relative; margin: 18px auto 0; box-shadow: inset 0 0 0 1px #d0d0d0;
+  }
+  .axis-labels{
+    display:flex; justify-content: space-between; width:98%; margin: 0 auto;
+    font-size:16px; color:#444;
+  }
+  .placed{
+    position:absolute; top: -22px; transform: translateX(-50%);
+    padding: 2px 6px; background:#fff; border:1px solid #bcbcbc; border-radius:10px;
+    font-size:12px; white-space:nowrap; cursor: grab; box-shadow: 0 1px 0 rgba(0,0,0,.06); z-index: 20;
+  }
+  .placed:active{ cursor: grabbing; }
+  .controls{ text-align:center; color:#666; font-size:14px; margin-top: 10px; }
+
+  /* —— 第4页：极端词 —— */
+  .axis-mini{
+    width: 98%; height: 12px; background:#e0e0e0; border-radius:6px;
+    position: relative; margin: 10px auto 16px; box-shadow: inset 0 0 0 1px #d0d0d0;
+  }
+  .axis-mini-labels{
+    display:flex; justify-content: space-between; width:98%; margin: 0 auto 8px;
+    font-size:15px; color:#444;
+  }
+  .split-2{
+    display:grid; grid-template-columns: 1fr 1fr; gap: var(--gap);
+  }
+  @media (max-width: 860px){ .split-2{ grid-template-columns: 1fr; } }
+  textarea{
+    width: 100%; min-height: 120px; padding: 12px; font-size: 16px;
+    border: 1px solid #ccc; border-radius: 10px; resize: vertical;
+  }
+  .hint{ color:#555; font-size: 13px; margin-top: 6px; }
+</style>
+
+<div class="wrap">
+
+  <!-- 第1页：基本信息 -->
+  <section id="page1" class="card">
+    <h1 class="title">基本信息</h1>
+    <p class="subtitle">请填写以下信息，然后点击“下一步”。</p>
+
+    <div class="form-grid">
+      <div>
+        <label for="pname">姓名</label>
+        <input id="pname" type="text" placeholder="请输入姓名">
+      </div>
+      <div>
+        <label for="page">年龄（5–120）</label>
+        <input id="page" type="number" placeholder="请输入年龄" min="5" max="120" step="1">
+      </div>
+      <div>
+        <label for="pgender">性别</label>
+        <select id="pgender">
+          <option value="">请选择</option>
+          <option>男</option>
+          <option>女</option>
+        </select>
+      </div>
+      <div>
+        <label for="pedu">学历</label>
+        <select id="pedu">
+          <option value="">请选择</option>
+          <option>初中及以下</option>
+          <option>高中/中专</option>
+          <option>大专</option>
+          <option>本科</option>
+          <option>硕士</option>
+          <option>博士及以上</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="err1" class="err">请完整、正确地填写信息后再继续。</div>
+    <button id="toPage2" class="btn">下一步</button>
+  </section>
+
+  <!-- 第2页：指导语 -->
+  <section id="page2" class="card hidden">
+    <h1 class="title">任务说明</h1>
+    <div class="instr">
+      <p>人们对时间的主观感受常常存在差异：例如，有人觉得上课时<span style="white-space:nowrap">时间过得很慢</span>，也有人觉得上课时<span style="white-space:nowrap">时间过得很快</span>。本研究关注的是你对日常活动的<strong>主观耗时感</strong>。</p>
+      <p>接下来你会看到一系列日常活动词语。请依据你<strong>主观上认为其“耗时程度”</strong>，把每个词拖拽到一条水平轴上进行排列：</p>
+      <ul style="line-height:1.9; color:#333; padding-left: 20px; margin: 6px 0;">
+        <li><b>左端：</b>你主观认为<strong>耗时最短</strong>（时间过得很快）的活动。</li>
+        <li><b>右端：</b>你主观认为<strong>耗时最长</strong>（时间过得很慢）的活动。</li>
+      </ul>
+      <p>请只依据你的主观感觉来判断，不需要考虑客观所需时长或你是否喜欢该活动。所有词语都需要放到轴上；放置后可以再次拖动微调。</p>
+    </div>
+    <button id="toPage3" class="btn">开始</button>
+    <button id="backTo1" class="btn secondary" style="margin-left:8px;">返回上一步</button>
+  </section>
+
+  <!-- 第3页：拖拽任务 -->
+  <section id="page3" class="hidden">
+    <h2 class="task-title">请请根据你的主观时间感受，把上方的日常活动词逐一拖到下方横轴上（左：耗时最短｜右：耗时最长）。</h2>
+    <div class="bank" id="bank"></div>
+
+    <div class="axis-wrap">
+      <div class="axis-labels"><div>耗时最短</div><div>耗时最长</div></div>
+      <div class="axis" id="axis"></div>
+      <div class="controls">
+        将所有词放到轴上（轴上的词可<strong>再次拖动</strong>微调）。完成后点击“下一步”。
+        <div><button class="btn" id="toPage4">下一步</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 第4页：极端词文本输入 -->
+  <section id="page4" class="card hidden">
+    <h1 class="title">补充小任务：最“短/快/迅速”与最“长/慢/耗时”</h1>
+    <p class="subtitle">请根据你的主观感受，填写你认为位于两端的活动词。每端至少 <b>2–5</b> 个词，词与词之间用中文或英文逗号分隔（例如：<i>刷牙, 散步, 午休</i>）。每个词限 <b>1–3</b> 个字。</p>
+
+    <div class="axis-mini-labels"><div>最短暂｜最快｜最迅速｜耗时最短</div><div>最漫长｜最久｜最慢｜耗时最长</div></div>
+    <div class="axis-mini"></div>
+
+    <div class="split-2" style="margin-top:14px;">
+      <div>
+        <label for="leftText">左端（最短/最快）</label>
+        <textarea id="leftText" placeholder="请按要求填写：2–5个词"></textarea>
+        <div id="leftErr" class="err">请按要求填写：2–5 个词，每个 1–3 个字，用逗号分隔。</div>
+        <div class="hint">可用分隔符：中文逗号、英文逗号、顿号。</div>
+      </div>
+      <div>
+        <label for="rightText">右端（最漫长/最慢）</label>
+        <textarea id="rightText" placeholder="请按要求填写：2–5个词"></textarea>
+        <div id="rightErr" class="err">请按要求填写：2–5 个词，每个 1–3 个字，用逗号分隔。</div>
+        <div class="hint">不要包含空格或超过 3 个字的词。</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;">
+      <button id="exportAll" class="btn">导出 CSV</button>
+      <button id="backTo3" class="btn secondary" style="margin-left:8px;">返回上一步</button>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =================== 全局参数与状态 =================== */
+const WORDS = ["搬家","睡觉","吃饭","工作","阅读","洗澡","跑步","上网","喝酒","游泳",
+  "起床","购物","锻炼","爬山","扫地","刷牙","开会","照相","跳绳","洗衣",
+  "写作","散步","看病","哭泣","旅游","通话","考试","约会","午休","聊天",
+  "钓鱼","唱歌","聚会","讨论","布置","整理","手工","演讲","排队","发呆"];
+const STEP = 0.1; // 第3页位置分辨率
+
+// 页元素
+const page1 = document.getElementById('page1');
+const page2 = document.getElementById('page2');
+const page3 = document.getElementById('page3');
+const page4 = document.getElementById('page4');
+
+const bank = document.getElementById('bank');
+const axis = document.getElementById('axis');
+
+const positions = {}; WORDS.forEach(w => positions[w]=null);
+const tokenEls = {}; // 上方 token 引用
+let participant = {name:"", age:null, gender:"", education:""};
+
+/* =================== 工具函数 =================== */
+function shuffle(a){ const arr=a.slice(); for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] } return arr; }
+function downloadCSV(filename, rows){
+  const raw = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const csv = "\uFEFF" + raw; // UTF-8 BOM
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+}
+function splitWords(text){
+  // 允许分隔符：中文逗号、英文逗号、顿号；去掉空白
+  return text.split(/[，,、]/).map(s=>s.trim()).filter(s=>s.length>0);
+}
+function validateExtremes(arr, minN=2, maxN=5){
+  if (arr.length < minN || arr.length > maxN) return false;
+  // 每个词 1–3 个“字符”（不含空格）
+  return arr.every(w => w.length >=1 && w.length <=3 && !/\s/.test(w));
+}
+
+/* =================== 流程控制 =================== */
+// 第1页 → 第2页
+document.getElementById('toPage2').addEventListener('click', ()=>{
+  const name = document.getElementById('pname').value.trim();
+  const age  = Number(document.getElementById('page').value);
+  const gender = document.getElementById('pgender').value;
+  const edu    = document.getElementById('pedu').value;
+
+  const ok = name && Number.isFinite(age) && age>=5 && age<=120 && gender && edu;
+  const err = document.getElementById('err1');
+  if(!ok){ err.style.display='block'; return; }
+  err.style.display='none';
+
+  participant = {name, age, gender, education: edu};
+  page1.classList.add('hidden');
+  page2.classList.remove('hidden');
+});
+
+// 第2页 → 第3页
+document.getElementById('toPage3').addEventListener('click', ()=>{
+  page2.classList.add('hidden');
+  page3.classList.remove('hidden');
+  layoutTokensNoOverlap(shuffle(WORDS));
+});
+
+// 第2页 ← 返回第1页
+document.getElementById('backTo1').addEventListener('click', ()=>{
+  page2.classList.add('hidden');
+  page1.classList.remove('hidden');
+});
+
+// 第3页 → 第4页
+document.getElementById('toPage4').addEventListener('click', ()=>{
+  const miss=Object.keys(positions).filter(k=>positions[k]===null);
+  if(miss.length){
+    alert("还有未放置的词：\n"+miss.join("、")+"\n\n请把所有词拖到轴上（轴上的词可再次拖动微调）。");
+    return;
+  }
+  page3.classList.add('hidden');
+  page4.classList.remove('hidden');
+});
+
+// 第4页 ← 返回第3页
+document.getElementById('backTo3').addEventListener('click', ()=>{
+  page4.classList.add('hidden');
+  page3.classList.remove('hidden');
+});
+
+/* =================== 第3页：拖拽任务 =================== */
+// 顶部网格+微抖动：尽量避免重叠
+function layoutTokensNoOverlap(words){
+  const cols = 10, rows = Math.ceil(words.length / cols);
+  const pad = 16, W = bank.clientWidth, H = bank.clientHeight;
+  const cellW = (W - pad*2) / cols, cellH = (H - pad*2) / rows;
+
+  words.forEach((w, idx)=>{
+    const el = document.createElement('div');
+    el.className='token'; el.textContent=w;
+    bank.appendChild(el);
+    tokenEls[w] = el;
+
+    const r = Math.floor(idx / cols), c = idx % cols;
+    const jitterX = (Math.random()-0.5) * (cellW*0.3);
+    const jitterY = (Math.random()-0.5) * (cellH*0.3);
+    const x = pad + c*cellW + cellW/2 - el.offsetWidth/2 + jitterX;
+    const y = pad + r*cellH + cellH/2 - el.offsetHeight/2 + jitterY;
+    el.style.left = Math.max(6, Math.min(x, W - el.offsetWidth - 6)) + 'px';
+    el.style.top  = Math.max(6, Math.min(y, H - el.offsetHeight - 6)) + 'px';
+
+    bindTokenDrag(el, w);
+  });
+}
+
+// 上方 token → 拖到轴上
+function bindTokenDrag(el, word){
+  let dragging=false, dx=0, dy=0;
+  el.addEventListener('mousedown', e=>{
+    dragging=true; el.style.cursor='grabbing';
+    dx = e.clientX - el.offsetLeft; dy = e.clientY - el.offsetTop;
+  });
+  document.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    el.style.left = (e.clientX - dx) + 'px';
+    el.style.top  = (e.clientY - dy) + 'px';
+  });
+  document.addEventListener('mouseup', e=>{
+    if(!dragging) return; dragging=false; el.style.cursor='grab';
+    const axisRect=axis.getBoundingClientRect(), r=el.getBoundingClientRect();
+    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const insideX=(cx>=axisRect.left)&&(cx<=axisRect.right);
+    const insideY=(cy>=axisRect.top-24)&&(cy<=axisRect.bottom+24);
+    if(insideX&&insideY){
+      placeOnAxis(word, cx - axisRect.left); // 放置在轴上
+      if (tokenEls[word]) { tokenEls[word].remove(); tokenEls[word] = null; } // 移除上方标签
+    }
+  });
+}
+
+// 在轴上创建/移动 placed（可再次拖动微调）
+function placeOnAxis(word, relPx){
+  const W = axis.clientWidth;
+  relPx = Math.max(0, Math.min(relPx, W));
+  let val = (relPx / W) * 100;
+  val = Math.round(val*(1/STEP))/(1/STEP); // 量化
+  positions[word] = +val;
+
+  let placed = document.getElementById('p_'+word);
+  if(!placed){
+    placed = document.createElement('div');
+    placed.className='placed';
+    placed.id='p_'+word;
+    placed.textContent = word;
+    axis.appendChild(placed);
+
+    // 轴上左右拖动微调
+    let dragging=false, dx=0;
+    placed.addEventListener('mousedown', e=>{
+      dragging=true; placed.style.cursor='grabbing';
+      const rect = placed.getBoundingClientRect();
+      dx = e.clientX - rect.left; e.preventDefault();
+    });
+    document.addEventListener('mousemove', e=>{
+      if(!dragging) return;
+      const axisRect=axis.getBoundingClientRect();
+      let left = e.clientX - dx - axisRect.left + placed.offsetWidth/2;
+      left = Math.max(0, Math.min(left, axis.clientWidth));
+      placed.style.left = left + 'px';
+    });
+    document.addEventListener('mouseup', e=>{
+      if(!dragging) return; dragging=false; placed.style.cursor='grab';
+      const axisRect=axis.getBoundingClientRect();
+      let centerX = placed.getBoundingClientRect().left + placed.offsetWidth/2 - axisRect.left;
+      centerX = Math.max(0, Math.min(centerX, axis.clientWidth));
+      let v = (centerX / axis.clientWidth) * 100;
+      v = Math.round(v*(1/STEP))/(1/STEP);
+      positions[word] = +v;
+      placed.style.left = centerX + 'px';
+    });
+  }
+  placed.style.left = relPx + 'px';
+}
+
+/* =================== 第4页：校验与导出 =================== */
+document.getElementById('exportAll').addEventListener('click', ()=>{
+  const leftRaw  = document.getElementById('leftText').value.trim();
+  const rightRaw = document.getElementById('rightText').value.trim();
+  const leftArr  = splitWords(leftRaw);
+  const rightArr = splitWords(rightRaw);
+
+  const leftOK  = validateExtremes(leftArr, 2, 5);
+  const rightOK = validateExtremes(rightArr, 2, 5);
+
+  document.getElementById('leftErr').style.display  = leftOK  ? 'none' : 'block';
+  document.getElementById('rightErr').style.display = rightOK ? 'none' : 'block';
+  if(!leftOK || !rightOK) return;
+
+  // 导出 CSV 1：第3页的安置结果
+  const rows1=[["name","age","gender","education","word","value"]];
+  Object.entries(positions).forEach(([w,v])=>{
+    rows1.push([participant.name, participant.age, participant.gender, participant.education, w, v]);
+  });
+  downloadCSV(`placement_${participant.name || "noName"}.csv`, rows1);
+
+  // 导出 CSV 2：第4页极端词
+  const rows2=[["name","age","gender","education","left_raw","right_raw","left_items","right_items"]];
+  rows2.push([
+    participant.name, participant.age, participant.gender, participant.education,
+    leftRaw, rightRaw,
+    leftArr.join("|"), rightArr.join("|")
+  ]);
+  downloadCSV(`extremes_${participant.name || "noName"}.csv`, rows2);
+
+  alert("已导出两份 CSV：\n1) 词项位置（placement）\n2) 极端词列表（extremes）");
+});
+
+/* =================== 辅助：分词与校验 =================== */
+function splitWords(text){
+  return text.split(/[，,、]/).map(s=>s.trim()).filter(s=>s.length>0);
+}
+function validateExtremes(arr, minN=2, maxN=5){
+  if (arr.length < minN || arr.length > maxN) return false;
+  return arr.every(w => w.length >=1 && w.length <=3 && !/\s/.test(w));
+}
+</script>
+</html>
